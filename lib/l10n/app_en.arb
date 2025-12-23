@@ -1,0 +1,33 @@
+{
+  "@@locale": "en",
+  "appTitle": "HebrewBooks",
+  "home": "Home",
+  "search": "Search",
+  "saved": "Saved",
+  "settings": "Settings",
+  "language": "Language",
+  "theme": "Theme",
+  "networkUsage": "Network Usage",
+  "allowMobileData": "Allow mobile data usage",
+  "english": "English",
+  "hebrew": "Hebrew",
+  "light": "Light",
+  "dark": "Dark",
+  "system": "System",
+  "browse": "Browse",
+  "subjects": "Subjects",
+  "hebrewBooksCount": "{count} Hebrew Books",
+  "@hebrewBooksCount": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "more": "More",
+  "less": "Less",
+  "mobileDataWarningTitle": "Mobile Data Usage",
+  "mobileDataWarningMessage": "You have restricted mobile data usage in settings. Connect to WiFi to download content or change your settings.",
+  "ok": "OK",
+  "openSettings": "Open Settings"
+}

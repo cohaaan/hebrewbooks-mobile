@@ -1,0 +1,33 @@
+{
+  "@@locale": "he",
+  "appTitle": "ספרים עבריים",
+  "home": "בית",
+  "search": "חיפוש",
+  "saved": "שמורים",
+  "settings": "הגדרות",
+  "language": "שפה",
+  "theme": "ערכת נושא",
+  "networkUsage": "שימוש ברשת",
+  "allowMobileData": "אפשר שימוש בנתונים סלולריים",
+  "english": "אנגלית",
+  "hebrew": "עברית",
+  "light": "בהיר",
+  "dark": "כהה",
+  "system": "מערכת",
+  "browse": "עיון",
+  "subjects": "נושאים",
+  "hebrewBooksCount": "{count} ספרים עבריים",
+  "@hebrewBooksCount": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "more": "עוד",
+  "less": "פחות",
+  "mobileDataWarningTitle": "שימוש בנתונים סלולריים",
+  "mobileDataWarningMessage": "הגבלת שימוש בנתונים סלולריים בהגדרות. התחבר לרשת WiFi כדי להוריד תוכן או שנה את ההגדרות שלך.",
+  "ok": "אישור",
+  "openSettings": "פתח הגדרות"
+}

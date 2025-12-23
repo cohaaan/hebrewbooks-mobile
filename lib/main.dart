@@ -1,22 +1,25 @@
-import 'dart:io';
 import 'dart:ui';
 
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_downloader/flutter_downloader.dart';
 import 'package:hebrewbooks/firebase_options.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:hebrewbooks/l10n/app_localizations.dart';
 import 'package:hebrewbooks/providers/back_to_top_provider.dart';
 import 'package:hebrewbooks/providers/connection_provider.dart';
 import 'package:hebrewbooks/providers/downloads_provider.dart';
 import 'package:hebrewbooks/providers/history_provider.dart';
 import 'package:hebrewbooks/providers/saved_books_provider.dart';
 import 'package:hebrewbooks/providers/search_query_provider.dart';
+import 'package:hebrewbooks/providers/settings_provider.dart';
 import 'package:hebrewbooks/screens/home.dart';
 import 'package:hebrewbooks/screens/saved.dart';
 import 'package:hebrewbooks/screens/search.dart';
-import 'package:hebrewbooks/shared/theme.dart';
+import 'package:hebrewbooks/shared/theme.dart' as theme;
 import 'package:hebrewbooks/shared/widgets/back_to_top.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
@@ -26,19 +29,22 @@ import 'package:webview_flutter_android/webview_flutter_android.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Request notification permission for iOS
-  await Permission.notification.request();
+  // Mobile-only initializations
+  if (!kIsWeb) {
+    // Request notification permission for iOS
+    await Permission.notification.request();
 
-  // Plugin must be initialized before using
-  await FlutterDownloader.initialize(
-    debug: true,
-    // optional: set to false to disable printing logs to console (default: true)
-    ignoreSsl:
-        true, // option: set to false to disable working with http links (default: false)
-  );
+    // Plugin must be initialized before using
+    await FlutterDownloader.initialize(
+      debug: true,
+      // optional: set to false to disable printing logs to console (default: true)
+      ignoreSsl:
+          true, // option: set to false to disable working with http links (default: false)
+    );
 
-  if (Platform.isAndroid) {
-    WebViewPlatform.instance = AndroidWebViewPlatform();
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      WebViewPlatform.instance = AndroidWebViewPlatform();
+    }
   }
 
   WidgetsFlutterBinding.ensureInitialized();
@@ -60,6 +66,7 @@ Future<void> main() async {
   runApp(
     MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (context) => SettingsProvider()),
         ChangeNotifierProvider(create: (context) => ConnectionProvider()),
         ChangeNotifierProvider.value(value: BackToTopProvider.instance),
         ChangeNotifierProvider(create: (context) => SavedBooksProvider()),
@@ -88,11 +95,28 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'HebrewBooks',
-      theme: lightTheme,
-      navigatorObservers: <NavigatorObserver>[observer],
-      home: const MainPage(),
+    return Consumer<SettingsProvider>(
+      builder: (context, settingsProvider, child) {
+        return MaterialApp(
+          title: 'HebrewBooks',
+          theme: theme.lightTheme,
+          darkTheme: theme.darkTheme,
+          themeMode: settingsProvider.themeMode,
+          locale: Locale(settingsProvider.language),
+          supportedLocales: const [
+            Locale('en'),
+            Locale('he'),
+          ],
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          navigatorObservers: <NavigatorObserver>[observer],
+          home: const MainPage(),
+        );
+      },
     );
   }
 }

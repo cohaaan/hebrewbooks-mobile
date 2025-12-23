@@ -3,11 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hebrewbooks/main.dart';
 import 'package:hebrewbooks/providers/connection_provider.dart';
-import 'package:hebrewbooks/screens/browse.dart';
+import 'package:hebrewbooks/providers/settings_provider.dart';
 import 'package:hebrewbooks/screens/category.dart';
+import 'package:hebrewbooks/screens/settings.dart';
 import 'package:hebrewbooks/screens/webview_screen.dart';
+import 'package:hebrewbooks/shared/category_metadata.dart';
 import 'package:hebrewbooks/shared/classes/subject.dart';
 import 'package:hebrewbooks/shared/fetch.dart';
+import 'package:hebrewbooks/shared/widgets/category_card.dart';
 import 'package:hebrewbooks/shared/widgets/centered_spinner.dart';
 import 'package:hebrewbooks/shared/widgets/custom_text.dart';
 import 'package:hebrewbooks/shared/widgets/offline.dart';
@@ -24,21 +27,6 @@ class Home extends StatefulWidget {
 
 class _HomeState extends State<Home> {
   late Future<List<Subject>> fullSubjects;
-
-  // Track if the list is currently expanded
-  bool _isExpanded = false;
-
-  // Height of each subject item including divider
-  final double subjectItemHeight = 56;
-
-  // Minimum number of subjects to show
-  final int minSubjectsToShow = 3;
-
-  // Number of visible subjects that fit on screen
-  int visibleSubjectsCount = 3;
-
-  // Height of the bottom navigation bar
-  final double navigationBarHeight = 80;
 
   late Future<String?> countFuture;
 
@@ -70,42 +58,6 @@ class _HomeState extends State<Home> {
           onRetry: _loadSubjects,
         );
       }
-    }
-  }
-
-  // Calculate how many subjects can fit on the screen
-  void _calculateVisibleSubjectsCount(List<Subject> subjects) {
-    // Get available height for the subjects list
-    final screenHeight = MediaQuery.of(context).size.height;
-    final appBarHeight = AppBar().preferredSize.height;
-    final statusBarHeight = MediaQuery.of(context).padding.top;
-    const headingHeight =
-        60.0; // Approximate height for "Subjects" heading and spacing
-    const padding = 16.0;
-
-    // Calculate available height
-    final availableHeight = screenHeight -
-        appBarHeight -
-        statusBarHeight -
-        headingHeight -
-        padding -
-        navigationBarHeight;
-
-    // Calculate how many items can fit (ensuring a minimum of minSubjectsToShow)
-    final calculatedCount = (availableHeight / subjectItemHeight).floor();
-    visibleSubjectsCount = calculatedCount > minSubjectsToShow
-        ? calculatedCount
-        : minSubjectsToShow;
-
-    // If we have fewer subjects than calculated count, show all of them
-    if (subjects.length < visibleSubjectsCount) {
-      visibleSubjectsCount = subjects.length;
-    }
-
-    // If we have more subjects than can fit, add 1 for "More" button
-    if (subjects.length > visibleSubjectsCount) {
-      visibleSubjectsCount =
-          visibleSubjectsCount > 0 ? visibleSubjectsCount - 1 : 0;
     }
   }
 
@@ -157,6 +109,42 @@ class _HomeState extends State<Home> {
                   ),
                   centerTitle: true,
                   actions: <Widget>[
+                    Consumer<SettingsProvider>(
+                      builder: (context, settings, child) {
+                        return IconButton(
+                          onPressed: () {
+                            // Toggle between Hebrew and English
+                            final newLang =
+                                settings.language == 'he' ? 'en' : 'he';
+                            settings.setLanguage(newLang);
+                          },
+                          icon: CustomText(
+                            settings.language == 'he' ? 'א' : 'A',
+                            style:
+                                Theme.of(context).textTheme.titleLarge?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                          ),
+                          tooltip: settings.language == 'he'
+                              ? 'Switch to English'
+                              : 'Switch to Hebrew',
+                        );
+                      },
+                    ),
+                    IconButton(
+                      onPressed: () {
+                        FirebaseAnalytics.instance.logScreenView(
+                          screenName: 'settings',
+                        );
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute<Widget>(
+                            builder: (context) => const Settings(),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.settings_outlined),
+                    ),
                     IconButton(
                       onPressed: () {
                         _showAboutDialog(context);
@@ -169,145 +157,90 @@ class _HomeState extends State<Home> {
                   padding: const EdgeInsets.all(8),
                   child: Column(
                     children: [
-                      _buildBrowse(context),
-                      const SizedBox(
-                        height: 24,
-                      ),
-                      FutureBuilder<List<Subject>>(
-                        future: fullSubjects,
-                        builder: (context, snapshot) {
-                          if (snapshot.hasData) {
-                            final subjects = snapshot.data!;
-                            _calculateVisibleSubjectsCount(subjects);
+                      Consumer<SettingsProvider>(
+                        builder: (context, settings, child) {
+                          final isHebrew = settings.language == 'he';
+                          return FutureBuilder<List<Subject>>(
+                            future: fullSubjects,
+                            builder: (context, snapshot) {
+                              if (snapshot.hasData) {
+                                final subjects = snapshot.data!;
 
-                            // Prepare display subjects list
-                            var displaySubjects = <Subject>[];
-
-                            if (_isExpanded) {
-                              // Show all subjects when expanded
-                              displaySubjects = List<Subject>.from(subjects)
-                                // Add "Less" button at the end
-                                ..add(const Subject(
-                                    id: -2, name: 'Less', total: -1));
-                            } else if (subjects.length > visibleSubjectsCount) {
-                              // Show limited subjects with "More" button
-                              displaySubjects = List<Subject>.from(
-                                  subjects.sublist(0, visibleSubjectsCount))
-                                // Add "More" button
-                                ..add(const Subject(
-                                    id: -1, name: 'More', total: -1));
-                            } else {
-                              // Show all subjects if they fit within visible count
-                              displaySubjects = List<Subject>.from(subjects);
-                            }
-
-                            return Column(
-                              children: [
-                                CustomText(
-                                  'Subjects',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .headlineMedium,
-                                ),
-                                const SizedBox(
-                                  height: 8,
-                                ),
-                                Container(
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Directionality(
-                                    textDirection: TextDirection.rtl,
-                                    child: ListView.builder(
-                                      padding: EdgeInsets.zero,
-                                      shrinkWrap: true,
-                                      physics:
-                                          const NeverScrollableScrollPhysics(),
-                                      itemBuilder: (context, index) {
-                                        return Column(
-                                          children: [
-                                            if (index != 0) ...[
-                                              const Divider(
-                                                height: 0,
-                                                thickness: 1,
-                                              ),
-                                            ],
-                                            ListTile(
-                                              title: CustomText(
-                                                  displaySubjects[index].name),
-                                              onTap: displaySubjects[index]
-                                                          .id ==
-                                                      -1
-                                                  ? _expandList // More button
-                                                  : displaySubjects[index].id ==
-                                                          -2
-                                                      ? _collapseList // Less button
-                                                      : () {
-                                                          FirebaseAnalytics
-                                                              .instance
-                                                              .logScreenView(
-                                                                  screenName:
-                                                                      'category',
-                                                                  parameters: {
-                                                                'category_id':
-                                                                    displaySubjects[
-                                                                            index]
-                                                                        .id,
-                                                                'category_name':
-                                                                    displaySubjects[
-                                                                            index]
-                                                                        .name,
-                                                              });
-                                                          Navigator.push(
-                                                            context,
-                                                            MaterialPageRoute<
-                                                                Widget>(
-                                                              builder:
-                                                                  (context) =>
-                                                                      Category(
-                                                                id: displaySubjects[
-                                                                        index]
-                                                                    .id,
-                                                                name: displaySubjects[
-                                                                        index]
-                                                                    .name,
-                                                              ),
-                                                            ),
-                                                          );
-                                                        },
-                                              trailing: () {
-                                                // Determine the correct icon based on button type
-                                                if (displaySubjects[index].id ==
-                                                    -1) {
-                                                  // More button should always have down arrow
-                                                  return const Icon(Icons
-                                                      .keyboard_arrow_down);
-                                                } else if (displaySubjects[
-                                                            index]
-                                                        .id ==
-                                                    -2) {
-                                                  // Less button should always have up arrow
-                                                  return const Icon(
-                                                      Icons.keyboard_arrow_up);
-                                                } else {
-                                                  return null;
-                                                }
-                                              }(),
+                                return Column(
+                                  children: [
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                          vertical: 8.0),
+                                      child: CustomText(
+                                        isHebrew
+                                            ? 'ספרייה'
+                                            : 'Browse the Library',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .headlineMedium
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.bold,
                                             ),
-                                          ],
-                                        );
-                                      },
-                                      itemCount: displaySubjects.length,
+                                      ),
                                     ),
-                                  ),
-                                ),
-                              ],
-                            );
-                          } else if (snapshot.hasError) {
-                            return const SizedBox.shrink();
-                          }
-                          return const CenteredSpinner();
+                                    const SizedBox(height: 16),
+                                    Directionality(
+                                      textDirection: isHebrew
+                                          ? TextDirection.rtl
+                                          : TextDirection.ltr,
+                                      child: GridView.builder(
+                                        shrinkWrap: true,
+                                        physics:
+                                            const NeverScrollableScrollPhysics(),
+                                        gridDelegate:
+                                            const SliverGridDelegateWithFixedCrossAxisCount(
+                                          crossAxisCount: 2,
+                                          childAspectRatio: 0.85,
+                                          crossAxisSpacing: 12,
+                                          mainAxisSpacing: 12,
+                                        ),
+                                        itemCount: subjects.length,
+                                        itemBuilder: (context, index) {
+                                          final subject = subjects[index];
+                                          final metadata =
+                                              getCategoryMetadata(subject.name);
+
+                                          return CategoryCard(
+                                            metadata: metadata,
+                                            itemCount: subject.total,
+                                            isRTL: isHebrew,
+                                            onTap: () {
+                                              FirebaseAnalytics.instance
+                                                  .logScreenView(
+                                                screenName: 'category',
+                                                parameters: {
+                                                  'category_id': subject.id,
+                                                  'category_name': subject.name,
+                                                },
+                                              );
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute<Widget>(
+                                                  builder: (context) =>
+                                                      Category(
+                                                    id: subject.id,
+                                                    name: subject.name,
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              } else if (snapshot.hasError) {
+                                return const SizedBox.shrink();
+                              }
+                              return const CenteredSpinner();
+                            },
+                          );
                         },
                       ),
                     ],
@@ -319,20 +252,6 @@ class _HomeState extends State<Home> {
         );
       },
     );
-  }
-
-  // Show all subjects by setting isExpanded to true
-  void _expandList() {
-    setState(() {
-      _isExpanded = true;
-    });
-  }
-
-  // Collapse list back to initial size
-  void _collapseList() {
-    setState(() {
-      _isExpanded = false;
-    });
   }
 
   @override
@@ -505,70 +424,4 @@ class _HomeState extends State<Home> {
     );
   }
 
-  Widget _buildBrowse(BuildContext context) {
-    return Column(children: [
-      CustomText(
-        'Browse',
-        style: Theme.of(context).textTheme.headlineMedium,
-      ),
-      const SizedBox(
-        height: 8,
-      ),
-      LayoutBuilder(
-        builder: (context, constraints) {
-          const spacing = 8.0;
-          final textScaler = MediaQuery.textScalerOf(context);
-          const baseMinButtonWidth = 100.0;
-          final minButtonWidth = baseMinButtonWidth * textScaler.scale(1);
-          final columns =
-              (constraints.maxWidth / (minButtonWidth + spacing)).floor();
-          final buttonWidth = columns > 0
-              ? (constraints.maxWidth - spacing * (columns - 1)) / columns
-              : constraints.maxWidth;
-
-          final labels = [
-            'משניות',
-            'תנ"ך',
-            'רמב"ם',
-            'גמרא',
-            'שולחן ערוך',
-            'טור',
-            'משנה ברורה'
-          ];
-
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8.0),
-            child: Wrap(
-              alignment: WrapAlignment.center,
-              spacing: spacing,
-              runSpacing: spacing,
-              children: labels.map((label) {
-                final l = label;
-                return SizedBox(
-                  width: buttonWidth,
-                  child: FilledButton(
-                    onPressed: () {
-                      FirebaseAnalytics.instance.logEvent(
-                        name: 'browse_button_tapped',
-                        parameters: {'label': l},
-                      );
-                      Navigator.of(context).push(
-                        MaterialPageRoute<Widget>(
-                          builder: (context) => Browse(
-                            name: l,
-                            topic: l,
-                          ),
-                        ),
-                      );
-                    },
-                    child: CustomText(l),
-                  ),
-                );
-              }).toList(),
-            ),
-          );
-        },
-      ),
-    ]);
-  }
 }
